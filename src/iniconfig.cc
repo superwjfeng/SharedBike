@@ -1,6 +1,5 @@
-#include "iniconfig.h"
-
 #include "common.h"
+#include "iniconfig.h"
 #include <iniparser/iniparser.h>
 
 Iniconfig::Iniconfig() : _isloaded(false) {}
