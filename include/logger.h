@@ -12,7 +12,7 @@ class Logger {
  public:
   bool init(const std::string &log_conf_file);
   static Logger *instance() { return &instance_; }
-  log4cpp::Category *GetHandle() { return category_; };
+  log4cpp::Category *GetHandle() { return category_; }
 
  protected:
   static Logger instance_;
