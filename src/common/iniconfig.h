@@ -10,8 +10,9 @@ class Iniconfig {
   ~Iniconfig();
   bool loadfile(const std::string &path);
   const _st_env_config &getconfig();
+
  private:
   _st_env_config _config;
-  bool _isloaded;
+  bool _is_loaded;
 };
-#endif // SHBK_COMMON_INICONFIG
+#endif  // SHBK_COMMON_INICONFIG

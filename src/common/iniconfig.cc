@@ -1,8 +1,10 @@
-#include "common.h"
 #include "iniconfig.h"
+
 #include <iniparser/iniparser.h>
 
-Iniconfig::Iniconfig() : _isloaded(false) {}
+#include "common.h"
+
+Iniconfig::Iniconfig() : _is_loaded(false) {}
 
 Iniconfig::~Iniconfig() {}
 
@@ -26,9 +28,9 @@ bool Iniconfig::loadfile(const std::string &path) {
                            std::string(pwd), std::string(db), sport);
 
   iniparser_freedict(ini);
-  _isloaded = true;
+  _is_loaded = true;
   //}
-  return _isloaded;
+  return _is_loaded;
 }
 
 const _st_env_config &Iniconfig::getconfig() { return _config; }
