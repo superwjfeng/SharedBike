@@ -14,8 +14,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic -Wall -m64 -pipe -std=c++0x -l
 
 add_executable(shared_bike ${SOURCE_FILES}
   threadpool/thread_pool.cc threadpool/thread_cond.cc threadpool/thread_mutex.cc
+  util/iniconfig.cc util/logger.cc
   protocol/bike.pb.cc
 )
 
 # target_link_libraries(shared_bike iniparser common log4cpp pthread)
-target_link_libraries(shared_bike protobuf event pthread)
+target_link_libraries(shared_bike protobuf event pthread iniparser log4cpp)

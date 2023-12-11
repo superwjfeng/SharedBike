@@ -1,6 +1,8 @@
 #ifndef BIKE_GLOBALS_H_
 #define BIKE_GLOBALS_H_
 
+#include "logger.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */

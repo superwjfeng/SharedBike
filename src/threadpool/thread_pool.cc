@@ -26,12 +26,12 @@ thread_pool_t *thread_pool_init() {
 
   thread_pool_queue_init(&tp->queue);
 
-  if (thread_mutex_create(&tp->mtx) != OK) {
+  if (thread_mutex_create(&tp->mtx) != T_OK) {
     free(tp);
     return NULL;
   }
 
-  if (thread_cond_create(&tp->cond) != OK) {
+  if (thread_cond_create(&tp->cond) != T_OK) {
     (void)thread_mutex_destroy(&tp->mtx);
     free(tp);
     return NULL;
@@ -80,7 +80,7 @@ void thread_pool_destroy(thread_pool_t *tp) {
   for (n = 0; n < tp->threads; n++) {
     lock = 1;
 
-    if (thread_task_post(tp, &task) != OK) {
+    if (thread_task_post(tp, &task) != T_OK) {
       return;
     }
 
@@ -128,8 +128,8 @@ void thread_task_free(thread_task_t *task) {
 }
 
 int_t thread_task_post(thread_pool_t *tp, thread_task_t *task) {
-  if (thread_mutex_lock(&tp->mtx) != OK) {
-    return ERROR;
+  if (thread_mutex_lock(&tp->mtx) != T_OK) {
+    return T_ERROR;
   }
 
   if (tp->waiting >= tp->max_queue) {
@@ -137,7 +137,7 @@ int_t thread_task_post(thread_pool_t *tp, thread_task_t *task) {
 
     fprintf(stderr, "thread pool \"%s\" queue overflow: %ld tasks waiting\n",
             tp->name, tp->waiting);
-    return ERROR;
+    return T_ERROR;
   }
 
   // task->event.active = 1;
@@ -145,9 +145,9 @@ int_t thread_task_post(thread_pool_t *tp, thread_task_t *task) {
   task->id = thread_pool_task_id++;
   task->next = NULL;
 
-  if (thread_cond_signal(&tp->cond) != OK) {
+  if (thread_cond_signal(&tp->cond) != T_OK) {
     (void)thread_mutex_unlock(&tp->mtx);
-    return ERROR;
+    return T_ERROR;
   }
 
   *tp->queue.last = task;
@@ -161,7 +161,7 @@ int_t thread_task_post(thread_pool_t *tp, thread_task_t *task) {
     fprintf(stderr, "task #%lu added to thread pool \"%s\"\n", task->id,
             tp->name);
 
-  return OK;
+  return T_OK;
 }
 
 static void *thread_pool_cycle(void *data) {
@@ -174,14 +174,14 @@ static void *thread_pool_cycle(void *data) {
   if (debug) fprintf(stderr, "thread in pool \"%s\" started\n", tp->name);
 
   for (;;) {
-    if (thread_mutex_lock(&tp->mtx) != OK) {
+    if (thread_mutex_lock(&tp->mtx) != T_OK) {
       return NULL;
     }
 
     tp->waiting--;
 
     while (tp->queue.first == NULL) {
-      if (thread_cond_wait(&tp->cond, &tp->mtx) != OK) {
+      if (thread_cond_wait(&tp->cond, &tp->mtx) != T_OK) {
         (void)thread_mutex_unlock(&tp->mtx);
         return NULL;
       }
@@ -194,7 +194,7 @@ static void *thread_pool_cycle(void *data) {
       tp->queue.last = &tp->queue.first;
     }
 
-    if (thread_mutex_unlock(&tp->mtx) != OK) {
+    if (thread_mutex_unlock(&tp->mtx) != T_OK) {
       return NULL;
     }
 
@@ -226,8 +226,8 @@ static int_t thread_pool_init_default(thread_pool_t *tpp, char *name) {
               "thread_pool_init, name: %s ,threads: %lu max_queue: %ld\n",
               tpp->name, tpp->threads, tpp->max_queue);
 
-    return OK;
+    return T_OK;
   }
 
-  return ERROR;
+  return T_ERROR;
 }

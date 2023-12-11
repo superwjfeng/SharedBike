@@ -8,10 +8,31 @@
 #include "event.h"
 #include "events_def.h"
 #include "user_event_handler.h"
+#include "iniconfig.h"
+#include "logger.h"
 
 // TODO: 重新研究下头文件的组织
 
-int main() {
+int main(int argc, char **argv) {
+  if (argc < 3) {
+    std::cout << "Please input shbk <config file path> <log file config>!"
+              << std::endl;
+    return -1;
+  }
+
+  if (!Logger::instance()->init(std::string(argv[2]))) {
+    fprintf(stderr, "init log module failed.\n");
+    return -2;
+  }
+
+  Iniconfig config;
+  if (!config.loadfile(std::string(argv[1]))) {
+    // std::cout << "load" + std::string(argv[1]) + "is failed" << std::endl;
+    LOG_ERROR("load %s failed.", argv[1]);
+    // 等价于 LOG_ERROR Logger::instance()->GetHandle()->error()
+    return -3;
+  }
+
   iEvent *ie = new iEvent(EEVENTID_GET_MOBILE_CODE_REQ, 2);
   MobileCodeReqEv me("18266666666");
   me.dump(std::cout);

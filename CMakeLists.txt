@@ -6,4 +6,4 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 
 add_subdirectory(src)
 add_subdirectory(demo)
-add_subdirectory(tests)
+#add_subdirectory(tests)

@@ -16,8 +16,8 @@ extern "C" {
 typedef intptr_t int_t;
 typedef uintptr_t uint_t;
 
-#define OK 0
-#define ERROR -1
+#define T_OK 0
+#define T_ERROR -1
 
 int thread_mutex_create(pthread_mutex_t *mtx);
 int thread_mutex_destroy(pthread_mutex_t *mtx);

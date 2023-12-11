@@ -3,7 +3,7 @@
 
 TEST(MobileCode, Request) {
   MobileCodeRspEv mcre(200, 666666);
-  EXPECT_EQ(mcre.get_data(), "OK.");
+  EXPECT_EQ(mcre.get_data(), "T_OK.");
 }
 
 TEST(MobileCode, Response) {

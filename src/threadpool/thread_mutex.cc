@@ -9,7 +9,7 @@ int thread_mutex_create(pthread_mutex_t *mtx) {
   if (err != 0) {
     fprintf(stderr, "pthread_mutexattr_init() failed, reason: %s\n",
             strerror(errno));
-    return ERROR;
+    return T_ERROR;
   }
 
   err = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
@@ -18,14 +18,14 @@ int thread_mutex_create(pthread_mutex_t *mtx) {
             "pthread_mutexattr_settype(PTHREAD_MUTEX_ERRORCHECK) failed, "
             "reason: %s\n",
             strerror(errno));
-    return ERROR;
+    return T_ERROR;
   }
 
   err = pthread_mutex_init(mtx, &attr);
   if (err != 0) {
     fprintf(stderr, "pthread_mutex_init() failed, reason: %s\n",
             strerror(errno));
-    return ERROR;
+    return T_ERROR;
   }
 
   err = pthread_mutexattr_destroy(&attr);
@@ -34,7 +34,7 @@ int thread_mutex_create(pthread_mutex_t *mtx) {
             strerror(errno));
   }
 
-  return OK;
+  return T_OK;
 }
 
 int thread_mutex_destroy(pthread_mutex_t *mtx) {
@@ -44,10 +44,10 @@ int thread_mutex_destroy(pthread_mutex_t *mtx) {
   if (err != 0) {
     fprintf(stderr, "pthread_mutex_destroy() failed, reason: %s\n",
             strerror(errno));
-    return ERROR;
+    return T_ERROR;
   }
 
-  return OK;
+  return T_OK;
 }
 
 int thread_mutex_lock(pthread_mutex_t *mtx) {
@@ -55,11 +55,11 @@ int thread_mutex_lock(pthread_mutex_t *mtx) {
 
   err = pthread_mutex_lock(mtx);
   if (err == 0) {
-    return OK;
+    return T_OK;
   }
   fprintf(stderr, "pthread_mutex_lock() failed, reason: %s\n", strerror(errno));
 
-  return ERROR;
+  return T_ERROR;
 }
 
 int thread_mutex_unlock(pthread_mutex_t *mtx) {
@@ -72,10 +72,10 @@ int thread_mutex_unlock(pthread_mutex_t *mtx) {
 #endif
 
   if (err == 0) {
-    return OK;
+    return T_OK;
   }
 
   fprintf(stderr, "pthread_mutex_unlock() failed, reason: %s\n",
           strerror(errno));
-  return ERROR;
+  return T_ERROR;
 }

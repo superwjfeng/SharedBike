@@ -1,7 +1,7 @@
 #include "eventtype.h"
 
 static EErrorReason EER[] = {
-    {ERRC_SUCCESS, "OK."},
+    {ERRC_SUCCESS, "T_OK."},
     {ERRC_INVALID_MSG, "Invalid message."},
     {ERRC_INVALID_DATA, "Invalid data."},
     {ERRC_METHOD_NOT_ALLOWED, "Method not allowed."},
