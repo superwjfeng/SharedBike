@@ -1,4 +1,4 @@
-#include "event.h"
+#include "ievent.h"
 
 iEvent::iEvent(u32 eid, u32 sn) : eid_(eid), sn_(sn) {}
 iEvent::~iEvent() {}

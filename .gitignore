@@ -18,6 +18,7 @@ x64/
 # 忽略ide配置文件
 .idea/
 .vsdoe/
+.VSCodeCounter/
 
 # 排除以.sln、.vcxproj、.vcxproj.filters、.vcsproj.user为结尾的文件
 *.sln

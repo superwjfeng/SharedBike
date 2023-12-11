@@ -5,6 +5,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#define MAX_MSG_LEN 367280
+
 /* Global definition */
 #define TRUE 1
 #define FALSE 0

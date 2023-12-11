@@ -1,6 +1,12 @@
 #ifndef BIKE_COMMON_EVENT_H_
 #define BIKE_COMMON_EVENT_H_
 
+#include "globals.h"
+typedef struct EErrorReason_ {
+  i32 code;
+  const char *reason;
+} EErrorReason;
+
 /* event ID */
 enum EventID {
   EEVENTID_GET_MOBILE_CODE_REQ = 0x01,
@@ -21,10 +27,12 @@ enum EventID {
   EEVENTID_LIST_TRAVELS_REQ = 0x11,
   EEVENTID_LIST_TRAVELS_RSP = 0x12,
 
+  EEVENTID_EXIT_RSP = 0xFE,  // 什么都不用做
+
   EEVENTID_UNKNOWN = 0xFF
 };
 
-/* error code for event */
+/* 事件响应的错误代号 */
 enum EErrorCode {
   ERRC_SUCCESS = 200,
   ERRC_INVALID_MSG = 400,
@@ -33,7 +41,10 @@ enum EErrorCode {
   ERRC_PROCESS_FAILED = 406,
   ERRC_BIKE_IS_TAKEN = 407,
   ERRC_BIKE_IS_RUNNING = 408,
-  ERRC_BIKE_IS_DAMAGED = 409
+  ERRC_BIKE_IS_DAMAGED = 409,
+  ERR_NULL = 0  // added for for iteration
 };
+
+const char *getReasonByErrorCode(i32 code);
 
 #endif  // BIKE_COMMON_EVENT_H_
