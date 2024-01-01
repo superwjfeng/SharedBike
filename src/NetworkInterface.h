@@ -38,14 +38,16 @@ typedef struct _ConnectSession {
   i32 fd;   // 保存当前传送的文件句柄
 
   struct bufferevent *bev;
-  u32 msg_len;                          // 当前读写消息的长度
-  u32 read_msg_len;                     // 已经读取的消息长度
-  u32 sent_len;                         // 已经发送的长度
+
+  u32 msg_len;       // 当前读写消息的长度
+  u32 read_msg_len;  // 已经读取的消息长度
+
   char *read_buf;                       // 保存读消息的缓冲区
   char header[MESSAGE_HEADER_LEN + 1];  // 保存头部，10字节+1字节
-  char *write_buf;                      // 写消息的缓冲区
   u32 read_header_len;                  // 已读取的头部长度
 
+  char *write_buf;  // 写消息的缓冲区
+  u32 sent_len;     // 已经发送的长度
 } ConnectSession;
 
 class NetworkInterface {
@@ -64,8 +66,10 @@ class NetworkInterface {
                               void *arg);  // 发送相应回调
   static void handle_error(struct bufferevent *bev, short event,
                            void *arg);  // 处理错误回调
+
   void network_event_dispatch();
-  
+
+  // 发送线程池的响应结果
   void send_response_msg(ConnectSession *cs);
 
  private:

@@ -12,17 +12,17 @@
 class Logger {
  public:
   bool init(const std::string &log_conf_file);
-  static Logger *instance() { return &instance_; }
-  log4cpp::Category *GetHandle() { return category_; }
+  static Logger *getInstance() { return &instance_; }
+  log4cpp::Category *GetLogger() { return root_category_; }
 
  protected:
   static Logger instance_;  // TODO: 复习单例模式
-  log4cpp::Category *category_;
+  log4cpp::Category *root_category_;
 };
 
-#define LOG_INFO Logger::instance()->GetHandle()->info
-#define LOG_DEBUG Logger::instance()->GetHandle()->debug
-#define LOG_ERROR Logger::instance()->GetHandle()->error
-#define LOG_WARN Logger::instance()->GetHandle()->warn
+#define LOG_INFO Logger::getInstance()->GetLogger()->info
+#define LOG_DEBUG Logger::getInstance()->GetLogger()->debug
+#define LOG_ERROR Logger::getInstance()->GetLogger()->error
+#define LOG_WARN Logger::getInstance()->GetLogger()->warn
 
 #endif  // SHBK_LOGGER_

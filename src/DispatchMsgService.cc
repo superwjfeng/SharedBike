@@ -13,15 +13,17 @@ std::queue<iEvent *> DispatchMsgService::response_events;
 DispatchMsgService::DispatchMsgService() : tp_(nullptr) {}
 DispatchMsgService::~DispatchMsgService() {}
 
+// 初始线程池
 BOOL DispatchMsgService::open() {
   svr_exit_ = FALSE;
 
   thread_mutex_create(&queue_mutex);
-  thread_pool_init();
+  tp_ = thread_pool_init();
 
   return tp_ ? TRUE : FALSE;
 }
 
+// 关闭线程池
 void DispatchMsgService::close() {
   svr_exit_ = TRUE;
 
@@ -33,7 +35,7 @@ void DispatchMsgService::close() {
 }
 
 void DispatchMsgService::subscribe(u32 eid, iEventHandler *handler) {
-  // TODO: LOG_DEBUG("DispatchMsgService::subscribe eid: %u\n", eid);
+  LOG_DEBUG("DispatchMsgService::subscribe eid: %u\n", eid);
   /* eid 是否已经被订阅过了 */
   T_EventHandlersMap::iterator iter = subscribers_.find(eid);
   if (iter != subscribers_.end()) {
@@ -66,21 +68,19 @@ i32 DispatchMsgService::enqueue(iEvent *ev) {
 
 /* 线程池驱动 */
 iEvent *DispatchMsgService::process(const iEvent *ev) {
-  // LOG_DEBUG("DispatchMsgService::process -ev: %p\n", ev);
+  LOG_DEBUG("DispatchMsgService::process -ev: %p\n", ev);
   if (ev == NULL) return NULL;
   u32 eid = ev->get_eid();
-  // LOG_DEBUG("DispatchMsgService::process -eid: %p\n", eid);
+  LOG_DEBUG("DispatchMsgService::process -eid: %p\n", eid);
 
   if (eid == EEVENTID_UNKNOWN) {
-    // LOG_WARN("DispatchMsgService::process: unkown event id %d", eid);
+    LOG_WARN("DispatchMsgService::process: unkown event id %d", eid);
     return NULL;
   }
 
-  // LOG_DEBUG("dispatch ev: %d\n", ev->get_eid());
-
   T_EventHandlersMap::iterator handlers = subscribers_.find(eid);
   if (handlers == subscribers_.end()) {
-    // LOG_WARN("DispatchMsgService: no any event handler subscribed %d", eid);
+    LOG_WARN("DispatchMsgService: no event handler subscribed %d", eid);
     return NULL;
   }
 
@@ -89,7 +89,8 @@ iEvent *DispatchMsgService::process(const iEvent *ev) {
   for (auto iter = handlers->second.begin(); iter != handlers->second.end();
        iter++) {
     iEventHandler *handler = *iter;
-    // LOG_DEBUG("DispatchMsgService::process: get handler: %s\n",
+    LOG_DEBUG("DispatchMsgService::process: get handler: %s\n",
+              handler->get_name().c_str());
     // printf("DispatchMsgService::process: get handler: %s\n",
     //        handler->get_name().c_str());
     // rsp = handler->handle(ev);
@@ -99,19 +100,17 @@ iEvent *DispatchMsgService::process(const iEvent *ev) {
   return rsp;
 }
 
+// TODO:
+// 调查一下C++的函数被C调用，除了static外还有什么方法，另外需要考虑权限吗？友元
 void DispatchMsgService::svc(void *argv) {
   DispatchMsgService *dms = DispatchMsgService::getInstance();
   iEvent *ev = (iEvent *)argv;
   if (!dms->svr_exit_) {
-    // LOG_DEBUG("DispatchMsgService::svc ...\n");
+    LOG_DEBUG("DispatchMsgService::svc ...\n");
     iEvent *rsp = dms->process(ev);
     if (rsp) {
       rsp->dump(std::cout);
       rsp->set_args(ev->get_args());
-
-      thread_mutex_lock(&queue_mutex);
-      response_events.push(rsp);
-      thread_mutex_unlock(&queue_mutex);
     } else {
       // 多线程会出问题
       // if (NWIF_) NWIF_->send_response_msg(static_cast<ConnectSession
@@ -121,12 +120,16 @@ void DispatchMsgService::svc(void *argv) {
       rsp = new ExitRspEv();
       rsp->set_args(ev->get_args());
     }
+
+    thread_mutex_lock(&queue_mutex);
+    response_events.push(rsp);
+    thread_mutex_unlock(&queue_mutex);
   }
 }
 
 DispatchMsgService *DispatchMsgService::getInstance() {
   // 懒汉,
-  // TODO：改成double clock checking
+  // TODO:改成double clock checking
   if (DMS_ == nullptr) {
     DMS_ = new DispatchMsgService();
   }
@@ -135,17 +138,19 @@ DispatchMsgService *DispatchMsgService::getInstance() {
 
 iEvent *DispatchMsgService::parseEvent(const char *msg, u32 len, u32 eid) {
   if (!msg) {
-    // LOG_ERROR("DispatchMsgService::parseEvent - message is null[eid: %d].\n",
-    // eid);
+    LOG_ERROR("DispatchMsgService::parseEvent - message is null[eid: %d].\n",
+              eid);
     return nullptr;
   }
   if (eid == EEVENTID_GET_MOBILE_CODE_REQ) {
     bike::mobile_request mr;
-    if (!mr.ParseFromArray(msg, len)) {
+    if (mr.ParseFromArray(msg, len)) {
       MobileCodeReqEv *ev = new MobileCodeReqEv(mr.mobile());
       return ev;
     }
-  } else if (eid == EEVENTID_LOGIN_REQ) { /**/
+  } else if (eid == EEVENTID_LOGIN_REQ) {
+    /*TODO*/
+    return nullptr;
   }
   return nullptr;
 }
@@ -165,8 +170,9 @@ void DispatchMsgService::handleAllResponseEvent(NetworkInterface *interface) {
     if (!done) {
       if (ev->get_eid() == EEVENTID_GET_MOBILE_CODE_RSP) {
         MobileCodeRspEv *mcre = static_cast<MobileCodeRspEv *>(ev);
-        // LOG_DEBUG("DispatchMsgService::handleAllResponseEvent - id:
-        // EEVENTID_GET_MOBILE_CODE_RSP\n");
+        LOG_DEBUG(
+            "DispatchMsgService::handleAllResponseEvent - id: "
+            "EEVENTID_GET_MOBILE_CODE_RSP\n");
         ConnectSession *cs = (ConnectSession *)ev->get_args();
         cs->response = ev;
         // 序列化请求数据

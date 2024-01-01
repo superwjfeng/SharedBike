@@ -11,6 +11,9 @@ bool Logger::init(const std::string &log_conf_file) {
     return false;
   }
 
-  category_ = &log4cpp::Category::getRoot();
+  root_category_ = &log4cpp::Category::getRoot();
+  // TODO: 让error有颜色
+  // root_category_->error("\033[1;31mThis is an error message\033[0m");
+  
   return true;
 }

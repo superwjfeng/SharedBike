@@ -38,8 +38,7 @@ UserEventHandler::~UserEventHandler() {
 
 iEvent *UserEventHandler::handle(const iEvent *ev) {
   if (ev == NULL) {
-    // LOG_ERROR("input ev is nULL");
-    // printf("input ev is NULL");
+    LOG_ERROR("input ev is nULL");
   }
 
   u32 eid = ev->get_eid();
@@ -78,7 +77,9 @@ MobileCodeRspEv *UserEventHandler::handle_mobile_code_req(MobileCodeReqEv *ev) {
   return new MobileCodeRspEv(200, icode);
 }
 
+// 暂时用它来模拟产生验证码，之后需要用运营商的API来替换
+// TODO: 运营商的业务如何实现？
 i32 UserEventHandler::code_gen() {
   srand((unsigned int)time(NULL));
-  return (unsigned int)(rand() % (999999 - 100000) + 1000000);
+  return (unsigned int)(rand() % (999999 - 100000) + 100000);
 }

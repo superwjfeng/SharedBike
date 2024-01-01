@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "../globals.h"
 #include "bike.pb.h"
 
 using namespace bike;
@@ -41,7 +42,7 @@ int main(int argc, char **argv) {
                                    cmd_msg_cb, (void *)bev);
   event_add(ev_cmd, NULL);
 
-  /* 
+  /*
   void bufferevent_setcb(struct bufferevent *bufev,
     bufferevent_data_cb readcb, bufferevent_data_cb writecb,
     bufferevent_event_cb eventcb, void *cbarg);
@@ -59,21 +60,30 @@ int main(int argc, char **argv) {
 
 void cmd_msg_cb(int fd, short events, void *arg) {
   char msg[1024];
-  std::string proto_msg;
+  // std::string proto_msg;
 
+  // 目前只是为了触发cmd_msg_cb，小于13位的会被覆盖
   int ret = read(fd, msg, sizeof(msg));
   if (ret < 0) {
     perror("read fail ");
     exit(1);
   }
 
+  // TODO: 复习一下glibc的字符串函数，比如strcmp 以及此时需要放 '\0'
+  // 有一个很坑的点：stdin输入后会有换行符
+
   struct bufferevent *bev = (struct bufferevent *)arg;
-  // list_account_records_request larr;
-  // larr.set_mobile("18266666666");
-  // larr.SerializeToString(&proto_msg);
+  mobile_request mr;
+  mr.set_mobile("18266666666");
+  int len = mr.ByteSize();
+  // int len = strlen(msg);
+  memcpy(msg, "FBEB", 4);  // EEVENTID_GET_MOBILE_CODE_REQ
+  *(u16 *)(msg + 4) = 1;
+  *(i32 *)(msg + 6) = len;
+  mr.SerializeToArray(msg + 10, len);
 
   // 把终端的消息发送给服务器端
-  bufferevent_write(bev, proto_msg.c_str(), proto_msg.length());
+  bufferevent_write(bev, msg, len + 10);
 }
 
 // readcb
@@ -91,6 +101,15 @@ void server_msg_cb(struct bufferevent *bev, void *arg) {
   msg[len] = '\0';
 
   printf("recv from server<<<<< [%s] \n", msg);
+
+  if (strncmp(msg, "FBEB", 4) == 0) {
+    mobile_response mr;
+    // u16 event_id = *(u16 *)(msg + 4);
+    i32 len = *(i32 *)(msg + 6);
+    mr.ParseFromArray(msg + 10, len);
+    printf("mobile_response: code: %d, icode: %d, data: %s\n", mr.code(),
+           mr.icode(), mr.data().c_str());
+  }
 }
 
 typedef struct sockaddr SA;

@@ -33,13 +33,14 @@ class DispatchMsgService {
   virtual void subscribe(u32 eid, iEventHandler *handler);
   virtual void unsubscribe(u32 eid, iEventHandler *handler);
   virtual i32 enqueue(iEvent *ev);  // 把事件投递到线程池中进行处理
-  virtual iEvent *process(const iEvent *ev);
+  virtual iEvent *process(const iEvent *ev);  // 对具体的事件进行分发处理
 
   // C的线程池回调 service，C++的类函数多了一个this，所以设置为static
   static void svc(void *argv);
   static DispatchMsgService *getInstance();  // 单例
   iEvent *parseEvent(const char *msg, u32 len, u32 eid);
 
+  // 让interface把所有的响应序列化后发送出去
   void handleAllResponseEvent(NetworkInterface *interface);
 
  protected:
@@ -52,6 +53,7 @@ class DispatchMsgService {
 
   bool svr_exit_;
 
+  // 被static方法调用，只能定义为static
   static std::queue<iEvent *> response_events;  // 响应事件队列
   static pthread_mutex_t queue_mutex;
 };

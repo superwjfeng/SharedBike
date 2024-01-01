@@ -87,6 +87,7 @@ void listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
   bufferevent_enable(bev, EV_READ | EV_PERSIST);
 }
 
+// 从client读
 void do_echo_request(struct bufferevent *bev, void *arg) {
   std::string proto_msg;
   ConnectStat *stat = (ConnectStat *)arg;
@@ -97,7 +98,7 @@ void do_echo_request(struct bufferevent *bev, void *arg) {
 
   msg[len] = '\0';
   // parse protobuf message
-  
+
   proto_msg = msg;
 
   list_account_records_request larr;
