@@ -4,9 +4,18 @@
 
 #include "common.h"
 
+Iniconfig *Iniconfig::_inst = nullptr;
+
 Iniconfig::Iniconfig() : _is_loaded(false) {}
 
 Iniconfig::~Iniconfig() {}
+
+Iniconfig *Iniconfig::getInstance() {
+  if (_inst == nullptr) {
+    _inst = new Iniconfig();
+  }
+  return _inst;
+}
 
 bool Iniconfig::loadfile(const std::string &path) {
   dictionary *ini = nullptr;
@@ -21,7 +30,7 @@ bool Iniconfig::loadfile(const std::string &path) {
   int port = iniparser_getint(ini, "databse:port", 3306);
   const char *user = iniparser_getstring(ini, "database:user", "root");
   const char *pwd = iniparser_getstring(ini, "database:pwd", "123456");
-  const char *db = iniparser_getstring(ini, "databse:db", "dongnaobike");
+  const char *db = iniparser_getstring(ini, "database:db", "shared_bike");
   int sport = iniparser_getint(ini, "server:port", 9090);
 
   _config = _st_env_config(std::string(ip), port, std::string(user),

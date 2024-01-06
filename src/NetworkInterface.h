@@ -12,7 +12,7 @@
 
 /* used for application protocol */
 #define MESSAGE_HEADER_LEN 10
-#define MESSAGE_HEADER_ID "FBEB"
+#define MESSAGE_HEADER "FBEB"
 
 /* 分包可能一次读不完，需要读多次，要标记读到哪里了 */
 enum class MESSAGE_STATUS {

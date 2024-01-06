@@ -18,10 +18,11 @@ class UserEventHandler : public iEventHandler {
  private:
   // 在handle内调用
   MobileCodeRspEv *handle_mobile_code_req(MobileCodeReqEv *ev);
+  LoginRspEv *handle_login_req(LoginReqEv *ev);
   i32 code_gen(); /* 生成验证码，实际中这个功能是由运营商提供的接口来实现的 */
 
  private:
-  std::string mobile_; // phone number
+  std::string mobile_;                        // phone number
   std::unordered_map<std::string, i32> m2c_;  // <mobile, icode>
   pthread_mutex_t pm_;
 };

@@ -66,40 +66,6 @@ i32 DispatchMsgService::enqueue(iEvent *ev) {
   return thread_task_post(tp_, task);
 }
 
-/* 线程池驱动 */
-iEvent *DispatchMsgService::process(const iEvent *ev) {
-  LOG_DEBUG("DispatchMsgService::process -ev: %p\n", ev);
-  if (ev == NULL) return NULL;
-  u32 eid = ev->get_eid();
-  LOG_DEBUG("DispatchMsgService::process -eid: %p\n", eid);
-
-  if (eid == EEVENTID_UNKNOWN) {
-    LOG_WARN("DispatchMsgService::process: unkown event id %d", eid);
-    return NULL;
-  }
-
-  T_EventHandlersMap::iterator handlers = subscribers_.find(eid);
-  if (handlers == subscribers_.end()) {
-    LOG_WARN("DispatchMsgService: no event handler subscribed %d", eid);
-    return NULL;
-  }
-
-  /* 给订阅用户都发一遍 */
-  iEvent *rsp = NULL;
-  for (auto iter = handlers->second.begin(); iter != handlers->second.end();
-       iter++) {
-    iEventHandler *handler = *iter;
-    LOG_DEBUG("DispatchMsgService::process: get handler: %s\n",
-              handler->get_name().c_str());
-    // printf("DispatchMsgService::process: get handler: %s\n",
-    //        handler->get_name().c_str());
-    // rsp = handler->handle(ev);
-    // TODO: 使用vector或list来返回多个rsp
-    rsp = handler->handle(ev);
-  }
-  return rsp;
-}
-
 // TODO:
 // 调查一下C++的函数被C调用，除了static外还有什么方法，另外需要考虑权限吗？友元
 void DispatchMsgService::svc(void *argv) {
@@ -127,6 +93,40 @@ void DispatchMsgService::svc(void *argv) {
   }
 }
 
+/* 线程池驱动 */
+iEvent *DispatchMsgService::process(const iEvent *ev) {
+  LOG_DEBUG("DispatchMsgService::process -ev: %p\n", ev);
+  if (ev == NULL) return NULL;
+  u32 eid = ev->get_eid();
+  LOG_DEBUG("DispatchMsgService::process -eid: %p\n", eid);
+
+  if (eid == EEVENTID_UNKNOWN) {
+    LOG_WARN("DispatchMsgService::process: unkown event id %d\n", eid);
+    return NULL;
+  }
+
+  T_EventHandlersMap::iterator handlers = subscribers_.find(eid);
+  if (handlers == subscribers_.end()) {
+    LOG_WARN("DispatchMsgService: no event handler subscribed %d\n", eid);
+    return NULL;
+  }
+
+  /* 给订阅的user_event_handler都发一遍 */
+  iEvent *rsp = NULL;
+  for (auto iter = handlers->second.begin(); iter != handlers->second.end();
+       iter++) {
+    iEventHandler *handler = *iter;
+    LOG_DEBUG("DispatchMsgService::process: get handler: %s\n",
+              handler->get_name().c_str());
+    // printf("DispatchMsgService::process: get handler: %s\n",
+    //        handler->get_name().c_str());
+    // rsp = handler->handle(ev);
+    // TODO: 使用vector或list来返回多个rsp
+    rsp = handler->handle(ev);
+  }
+  return rsp;
+}
+
 DispatchMsgService *DispatchMsgService::getInstance() {
   // 懒汉,
   // TODO:改成double clock checking
@@ -142,6 +142,7 @@ iEvent *DispatchMsgService::parseEvent(const char *msg, u32 len, u32 eid) {
               eid);
     return nullptr;
   }
+
   if (eid == EEVENTID_GET_MOBILE_CODE_REQ) {
     bike::mobile_request mr;
     if (mr.ParseFromArray(msg, len)) {
@@ -149,10 +150,14 @@ iEvent *DispatchMsgService::parseEvent(const char *msg, u32 len, u32 eid) {
       return ev;
     }
   } else if (eid == EEVENTID_LOGIN_REQ) {
-    /*TODO*/
+    bike::login_request lr;
+    if (lr.ParseFromArray(msg, len)) {
+      LoginReqEv *ev = new LoginReqEv(lr.mobile(), lr.icode());
+      return ev;
+    }
+  } else {
     return nullptr;
   }
-  return nullptr;
 }
 
 void DispatchMsgService::handleAllResponseEvent(NetworkInterface *interface) {
@@ -169,23 +174,15 @@ void DispatchMsgService::handleAllResponseEvent(NetworkInterface *interface) {
     thread_mutex_unlock(&queue_mutex);
     if (!done) {
       if (ev->get_eid() == EEVENTID_GET_MOBILE_CODE_RSP) {
-        MobileCodeRspEv *mcre = static_cast<MobileCodeRspEv *>(ev);
         LOG_DEBUG(
             "DispatchMsgService::handleAllResponseEvent - id: "
             "EEVENTID_GET_MOBILE_CODE_RSP\n");
-        ConnectSession *cs = (ConnectSession *)ev->get_args();
-        cs->response = ev;
-        // 序列化请求数据
-        cs->msg_len = mcre->ByteSize();
-        cs->write_buf = new char[cs->msg_len + MESSAGE_HEADER_LEN];
-
-        // 组装头部
-        memcpy(cs->write_buf, MESSAGE_HEADER_ID, 4);
-        *(u16 *)(cs->write_buf + 4) = EEVENTID_GET_MOBILE_CODE_RSP;
-        *(i32 *)(cs->write_buf + 6) = cs->msg_len;
-
-        mcre->SerializeToArray(cs->write_buf + MESSAGE_HEADER_LEN, cs->msg_len);
-        interface->send_response_msg(cs);
+        assembleResponse(ev, EEVENTID_GET_MOBILE_CODE_RSP, interface);
+      } else if (ev->get_eid() == EEVENTID_LOGIN_RSP) {
+        LOG_DEBUG(
+            "DispatchMsgService::handleAllResponseEvent - id: "
+            "EEVENTID_LOGIN_RSP\n");
+        assembleResponse(ev, EEVENTID_LOGIN_RSP, interface);
       } else if (ev->get_eid() == EEVENTID_EXIT_RSP) {
         ConnectSession *cs = (ConnectSession *)ev->get_args();
         cs->response = ev;
@@ -193,4 +190,25 @@ void DispatchMsgService::handleAllResponseEvent(NetworkInterface *interface) {
       }
     }
   }
+}
+
+void DispatchMsgService::assembleResponse(iEvent *ev, EventID eid,
+                                          NetworkInterface *interface) {
+  ConnectSession *cs = (ConnectSession *)ev->get_args();
+  cs->response = ev;
+
+  // Serialize requested data
+  cs->msg_len = ev->ByteSize();  // ev形成多态
+  printf("cs->msg_len: %d\n", cs->msg_len);
+  cs->write_buf = new char[MESSAGE_HEADER_LEN + cs->msg_len];
+
+  // Assemble header
+  memcpy(cs->write_buf, MESSAGE_HEADER, 4);
+  *(u16 *)(cs->write_buf + 4) = eid;
+  *(i32 *)(cs->write_buf + 6) = cs->msg_len;
+
+  // Assemble serialized data
+  ev->SerializeToArray(cs->write_buf + MESSAGE_HEADER_LEN, cs->msg_len);
+  // TODO: 打印protobuf序列化后的内容
+  interface->send_response_msg(cs);
 }

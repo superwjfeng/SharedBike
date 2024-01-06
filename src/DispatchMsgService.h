@@ -42,6 +42,7 @@ class DispatchMsgService {
 
   // 让interface把所有的响应序列化后发送出去
   void handleAllResponseEvent(NetworkInterface *interface);
+  void assembleResponse(iEvent *ev, EventID eid, NetworkInterface *interface);
 
  protected:
   thread_pool_t *tp_;

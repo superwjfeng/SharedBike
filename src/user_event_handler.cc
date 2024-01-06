@@ -13,7 +13,10 @@
 #include <unistd.h>
 
 #include "DispatchMsgService.h"
+#include "iniconfig.h"
+#include "sqlconnection.h"
 #include "threadpool/thread.h"
+#include "user_service.h"
 // #include "logger.h"
 
 /*
@@ -49,7 +52,7 @@ iEvent *UserEventHandler::handle(const iEvent *ev) {
     return handle_mobile_code_req(static_cast<MobileCodeReqEv *>(ev));
     */
   } else if (eid == EEVENTID_LOGIN_REQ) {
-    // TODO: return handle_login_req((LoginEv *)ev);
+    return handle_login_req((LoginReqEv *)ev);
   } else if (eid == EEVENTID_RECHARGE_REQ) {
   } else if (eid == EEVENTID_ACCOUNT_BALANCE_REQ) {
   } else if (eid == EEVENTID_LIST_ACCOUNT_RECORDS_REQ) {
@@ -74,7 +77,7 @@ MobileCodeRspEv *UserEventHandler::handle_mobile_code_req(MobileCodeReqEv *ev) {
 
   printf("mobile: %s, code: %d\n", mobile_.c_str(), icode);
 
-  return new MobileCodeRspEv(200, icode);
+  return new MobileCodeRspEv(ERRC_SUCCESS, icode);
 }
 
 // 暂时用它来模拟产生验证码，之后需要用运营商的API来替换
@@ -82,4 +85,47 @@ MobileCodeRspEv *UserEventHandler::handle_mobile_code_req(MobileCodeReqEv *ev) {
 i32 UserEventHandler::code_gen() {
   srand((unsigned int)time(NULL));
   return (unsigned int)(rand() % (999999 - 100000) + 100000);
+}
+
+LoginRspEv *UserEventHandler::handle_login_req(LoginReqEv *ev) {
+  LoginRspEv *loginEv = nullptr;
+  std::string mobile = ev->get_mobile();
+  i32 icode = ev->get_icode();
+  LOG_DEBUG("try to handle login ev, mobile = %s, code = %d", mobile.c_str(),
+            icode);
+  thread_mutex_lock(&pm_);
+  auto iter = m2c_.find(mobile);
+  if (((iter != m2c_.end()) && (icode != iter->second)) ||
+      (iter == m2c_.end())) {
+    // TODO: 这里return会死锁，考虑用LOCK_GUARD？
+    // return new LoginRspEv(ERRC_INVALID_DATA);
+    loginEv = new LoginRspEv(ERRC_INVALID_DATA);
+  }
+  thread_mutex_unlock(&pm_);
+  if (loginEv) return loginEv;
+
+  // 如果验证成功，则要判断用户在数据库是否成功，不成功则插入用户记录
+  std::shared_ptr<MySqlConnection> mysqlconn(new MySqlConnection);
+
+  st_env_config conf_args = Iniconfig::getInstance()->getconfig();
+  if (!mysqlconn->Init(conf_args._db_ip.c_str(), conf_args._db_port,
+                       conf_args._db_user.c_str(), conf_args._db_pwd.c_str(),
+                       conf_args._db_name.c_str())) {
+    LOG_ERROR(
+        "UserEventHandler::handle_login_req - Database connection init "
+        "failed\n");
+    return new LoginRspEv(ERRC_PROCESS_FAILED);
+  }
+
+  UserService us(mysqlconn);
+  bool res = false;
+  if (!us.exist(mobile)) {
+    res = us.insert(mobile);
+    if (!res) {
+      LOG_ERROR("insert user(%s) to db failed", mobile.c_str());
+      return new LoginRspEv(ERRC_PROCESS_FAILED);
+    }
+  }
+
+  return new LoginRspEv(ERRC_SUCCESS);
 }

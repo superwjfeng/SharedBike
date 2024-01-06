@@ -10,18 +10,19 @@
 #include "DispatchMsgService.h"
 
 // 注意：ConnectSession 必须是纯C类型的成员变量，否则memset会出问题
+// 设置为 static 是因为只在这个文件中用到
 static ConnectSession *session_init(int fd, struct bufferevent *bev) {
-  ConnectSession *tmp = nullptr;
-  tmp = new ConnectSession();
-  if (!tmp) {
-    // TODO: %m?
-    fprintf(stderr, "malloc failed, reason: %m\n");
+  ConnectSession *cs = new ConnectSession();
+  if (!cs) {
+    LOG_ERROR("session_init: malloc failed, reason: %m\n", errno);
     return nullptr;
   }
   // 只有在ConnectSession为纯C定义时候可以用memset初始化，否则会打乱C++结构
-  memset(tmp, '\0', sizeof(ConnectSession));
-  tmp->bev = bev;
-  tmp->fd = fd;
+  memset(cs, '\0', sizeof(ConnectSession));
+  cs->bev = bev;
+  cs->fd = fd;
+  // TODO: 这里不返回也可以正确初始化？为什么？推测是编译器的优化？
+  return cs;
 }
 
 void session_reset(ConnectSession *cs) {
@@ -65,10 +66,14 @@ bool NetworkInterface::start(int port) {
   sin.sin_port = htons(port);
 
   base_ = event_base_new();
-  listener_ = evconnlistener_new_bind(
-      base_, NetworkInterface::listener_cb, base_,
-      LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, 512, (struct sockaddr *)&sin,
-      sizeof(struct sockaddr_in));
+  if ((listener_ = evconnlistener_new_bind(
+           base_, NetworkInterface::listener_cb, base_,
+           LEV_OPT_REUSEABLE | LEV_OPT_CLOSE_ON_FREE, 512,
+           (struct sockaddr *)&sin, sizeof(struct sockaddr_in))) != NULL) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 void NetworkInterface::close() {
@@ -103,13 +108,13 @@ void NetworkInterface::listener_cb(struct evconnlistener *listener,
   bufferevent_setcb(bev, handle_request, handle_response, handle_error, cs);
   bufferevent_enable(bev, EV_READ | EV_PERSIST);
   // TODO: timer 参数设置到配置文件，具体设置多少因项目而异
-  bufferevent_settimeout(bev, 10, 10);  
+  bufferevent_settimeout(bev, 10, 10);
 }
 
 void NetworkInterface::handle_request(struct bufferevent *bev, void *arg) {
   ConnectSession *cs = static_cast<ConnectSession *>(arg);
   if (cs->session_stat != SESSION_STATUS::SS_REQUEST) {
-    LOG_WARN("NetworkInterface::handle_requset - wrong session state[%d].",
+    LOG_WARN("NetworkInterface::handle_requset - wrong session state[%d].\n",
              cs->session_stat);
     return;
   }
@@ -120,8 +125,7 @@ void NetworkInterface::handle_request(struct bufferevent *bev, void *arg) {
     cs->header[cs->read_header_len] = '\0';
     LOG_DEBUG("recv from client <<<< %s\n", cs->header);
     if (cs->read_header_len == MESSAGE_HEADER_LEN) {
-      if (strncmp(cs->header, MESSAGE_HEADER_ID, strlen(MESSAGE_HEADER_ID)) ==
-          0) {
+      if (strncmp(cs->header, MESSAGE_HEADER, strlen(MESSAGE_HEADER)) == 0) {
         // 取出事件类型和消息长度
         cs->eid = *((u16 *)(cs->header + 4));
         cs->msg_len = *((i32 *)(cs->header + 6));
@@ -224,5 +228,6 @@ void NetworkInterface::send_response_msg(ConnectSession *cs) {
     // TODO: 这里和handle_response回调的关系是？
     bufferevent_write(cs->bev, cs->write_buf, cs->msg_len + MESSAGE_HEADER_LEN);
     session_reset(cs);
+    LOG_INFO("send_response_msg: sent\n");
   }
 }

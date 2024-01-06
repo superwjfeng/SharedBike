@@ -14,6 +14,7 @@
 #include "bike.pb.h"
 
 using namespace bike;
+i32 icode = 0;
 
 int tcp_connect_server(const char *server_ip, int port);
 void cmd_msg_cb(int fd, short events, void *arg);
@@ -59,11 +60,12 @@ int main(int argc, char **argv) {
 }
 
 void cmd_msg_cb(int fd, short events, void *arg) {
+  char cmd[1024];
   char msg[1024];
   // std::string proto_msg;
 
   // 目前只是为了触发cmd_msg_cb，小于13位的会被覆盖
-  int ret = read(fd, msg, sizeof(msg));
+  int ret = read(fd, cmd, sizeof(cmd));
   if (ret < 0) {
     perror("read fail ");
     exit(1);
@@ -72,18 +74,37 @@ void cmd_msg_cb(int fd, short events, void *arg) {
   // TODO: 复习一下glibc的字符串函数，比如strcmp 以及此时需要放 '\0'
   // 有一个很坑的点：stdin输入后会有换行符
 
-  struct bufferevent *bev = (struct bufferevent *)arg;
-  mobile_request mr;
-  mr.set_mobile("18266666666");
-  int len = mr.ByteSize();
-  // int len = strlen(msg);
-  memcpy(msg, "FBEB", 4);  // EEVENTID_GET_MOBILE_CODE_REQ
-  *(u16 *)(msg + 4) = 1;
-  *(i32 *)(msg + 6) = len;
-  mr.SerializeToArray(msg + 10, len);
+  cmd[ret - 1] = '\0';
+  printf("read cmd: [%s]\n", cmd);
 
-  // 把终端的消息发送给服务器端
-  bufferevent_write(bev, msg, len + 10);
+  struct bufferevent *bev = (struct bufferevent *)arg;
+
+  if (strcmp(cmd, "send_mr") == 0) {
+    mobile_request mr;
+    mr.set_mobile("18266666666");
+    int len = mr.ByteSizeLong();
+    // int len = strlen(msg);
+    memcpy(msg, "FBEB", 4);  // EEVENTID_GET_MOBILE_CODE_REQ
+    *(u16 *)(msg + 4) = 1;
+    *(i32 *)(msg + 6) = len;
+    mr.SerializeToArray(msg + 10, len);
+
+    // 把终端的消息发送给服务器端
+    bufferevent_write(bev, msg, len + 10);
+  }
+
+  if (strcmp(cmd, "send_lr") == 0) {
+    login_request lr;
+    lr.set_mobile("18266666666");
+    lr.set_icode(icode);
+
+    int len = lr.ByteSizeLong();
+    memcpy(msg, "FBEB", 4);
+    *(u16 *)(msg + 4) = 3;
+    *(i32 *)(msg + 6) = len;
+    lr.SerializeToArray(msg + 10, len);
+    bufferevent_write(bev, msg, len + 10);
+  }
 }
 
 // readcb
@@ -103,12 +124,22 @@ void server_msg_cb(struct bufferevent *bev, void *arg) {
   printf("recv from server<<<<< [%s] \n", msg);
 
   if (strncmp(msg, "FBEB", 4) == 0) {
-    mobile_response mr;
-    // u16 event_id = *(u16 *)(msg + 4);
+    u16 event_id = *(u16 *)(msg + 4);
     i32 len = *(i32 *)(msg + 6);
-    mr.ParseFromArray(msg + 10, len);
-    printf("mobile_response: code: %d, icode: %d, data: %s\n", mr.code(),
-           mr.icode(), mr.data().c_str());
+    if (event_id == 2) {  // EEVENTID_GET_MOBILE_CORE_RSP
+      mobile_response mr;
+      mr.ParseFromArray(msg + 10, len);
+      icode = mr.icode();
+      printf("mobile_response: code: %d, icode: %d, data: %s\n", event_id,
+             icode, mr.data().c_str());
+    } else if (event_id == 4) {  // EEVENT_LOGIN_RSP
+      login_response lr;
+      lr.ParseFromArray(msg + 10, len);
+      i32 code = lr.code();
+      printf("login_response: code: %d\n", code);
+    } else {
+      return;
+    }
   }
 }
 
